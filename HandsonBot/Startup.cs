@@ -3,9 +3,11 @@
 
 using System;
 using System.Linq;
+using HandsonBot.SampleBot;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Integration;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Configuration;
@@ -108,8 +110,10 @@ namespace HandsonBot
                 // Create Conversation State object.
                 // The Conversation State object is where we persist anything at the conversation-scope.
                 var conversationState = new ConversationState(dataStore);
-
                 options.State.Add(conversationState);
+
+                var userState = new UserState(dataStore);
+                options.State.Add(userState);
             });
 
             // Create and register state accesssors.
@@ -133,6 +137,29 @@ namespace HandsonBot
                 var accessors = new EchoBotAccessors(conversationState)
                 {
                     CounterState = conversationState.CreateProperty<CounterState>(EchoBotAccessors.CounterStateName),
+                };
+
+                return accessors;
+            });
+
+            // Create and register state accesssors.
+            // Acessors created here are passed into the IBot-derived class on every turn.
+            services.AddSingleton<SampleBotAccessors>(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<BotFrameworkOptions>>().Value
+                                 ?? throw new InvalidOperationException("BotFrameworkOptions must be configured prior to setting up the state accessors");
+
+
+                var conversationState = options.State.OfType<ConversationState>().FirstOrDefault()
+                                        ?? throw new InvalidOperationException("ConversationState が ConfigureServices で設定されていません。");
+
+                var userState = options.State.OfType<UserState>().FirstOrDefault()
+                                ?? throw new InvalidOperationException("UserState が ConfigureServices で設定されていません。");
+
+                var accessors = new SampleBotAccessors(conversationState, userState)
+                {
+                    ConversationDialogState = conversationState.CreateProperty<DialogState>(nameof(DialogState)),
+                    UserProfile = userState.CreateProperty<UserProfile>(nameof(UserProfile)),
                 };
 
                 return accessors;
